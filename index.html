@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>作文分鏡教學系統</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/clshortridge/aframe-drag-controls@master/dist/aframe-drag-controls.min.js"></script>
+    <style>
+        body { margin: 0; font-family: "Microsoft JhengHei", sans-serif; }
+        #control-panel {
+            position: absolute; top: 10px; left: 10px; z-index: 999;
+            width: 260px; background: rgba(255, 255, 255, 0.9);
+            padding: 15px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .group { margin-bottom: 12px; border-bottom: 1px solid #ccc; padding-bottom: 8px; }
+        label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+        select, button { width: 100%; padding: 8px; margin: 4px 0; border-radius: 5px; border: 1px solid #999; }
+        button { background: #007bff; color: white; cursor: pointer; border: none; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        .del-btn { background: #dc3545; }
+        .hint { font-size: 11px; color: #555; }
+    </style>
+</head>
+<body>
+
+    <div id="control-panel">
+        <div class="group">
+            <label>1. 選擇場景背景</label>
+            <select id="env-select" onchange="changeEnv(this.value)">
+                <option value="forest">寂靜森林 (適合冒險)</option>
+                <option value="contact">現代室內 (適合生活)</option>
+                <option value="egypt">荒漠遺跡 (適合奇幻)</option>
+                <option value="dream">夢幻空間 (適合童話)</option>
+            </select>
+        </div>
+
+        <div class="group">
+            <label>2. 新增分鏡物件</label>
+            <select id="item-select">
+                <optgroup label="人偶角色">
+                    <option value="actor-main">主角 (藍色)</option>
+                    <option value="actor-sub">配角 (橘色)</option>
+                </optgroup>
+                <optgroup label="互動家具">
+                    <option value="chair">木椅</option>
+                    <option value="box">大箱子</option>
+                </optgroup>
+            </select>
+            <button onclick="spawn()">＋ 放入場景</button>
+        </div>
+
+        <div class="group">
+            <label>3. 調整選中物件</label>
+            <button onclick="rotateObj()">↺ 旋轉角度</button>
+            <button class="del-btn" onclick="deleteObj()">🗑 移除物件</button>
+        </div>
+
+        <div class="group">
+            <label>4. 預覽分鏡</label>
+            <button onclick="toggleCam('work')">佈置視角</button>
+            <button onclick="toggleCam('shot')">特寫鏡頭</button>
+        </div>
+        <div class="hint">提示：左鍵拖曳物件移動 / 右鍵旋轉視角觀察</div>
+    </div>
+
+    <a-scene embedded drag-controls="objects: .draggable">
+        <a-entity id="env" environment="preset: forest; seed: 1"></a-entity>
+        
+        <!-- 物件存放容器 -->
+        <a-entity id="stage"></a-entity>
+
+        <!-- 雙相機系統 -->
+        <a-entity id="rig">
+            <a-entity id="workCam" camera look-controls wasd-controls position="0 5 7" rotation="-30 0 0" active="true"></a-entity>
+            <a-entity id="shotCam" camera position="0 1.5 2" active="false"></a-entity>
+        </a-entity>
+
+        <a-entity light="type: ambient; intensity: 0.6"></a-entity>
+        <a-entity light="type: directional; intensity: 0.5" position="1 2 1"></a-entity>
+    </a-scene>
+
+    <script>
+        let selectedEl = null;
+
+        function spawn() {
+            const val = document.getElementById('item-select').value;
+            const stage = document.getElementById('stage');
+            const el = document.createElement('a-entity');
+            el.setAttribute('class', 'draggable');
+            el.setAttribute('position', '0 0.5 -1');
+            
+            if(val.includes('actor')) {
+                el.setAttribute('geometry', 'primitive: capsule; radius: 0.3; height: 1.5');
+                el.setAttribute('material', 'color', val === 'actor-main' ? '#007bff' : '#fd7e14');
+            } else {
+                el.setAttribute('geometry', val === 'chair' ? 'primitive: box; width: 0.6; height: 0.8; depth: 0.6' : 'primitive: box; size: 1');
+                el.setAttribute('material', 'color', '#6c757d');
+            }
+
+            el.addEventListener('mousedown', () => {
+                if(selectedEl) selectedEl.setAttribute('material', 'emissive', '#000');
+                selectedEl = el;
+                selectedEl.setAttribute('material', 'emissive', '#333');
+            });
+            stage.appendChild(el);
+        }
+
+        function rotateObj() {
+            if(!selectedEl) return;
+            let rot = selectedEl.getAttribute('rotation');
+            selectedEl.setAttribute('rotation', `0 ${rot.y + 45} 0`);
+        }
+
+        function deleteObj() {
+            if(selectedEl) { selectedEl.parentNode.removeChild(selectedEl); selectedEl = null; }
+        }
+
+        function changeEnv(p) { document.getElementById('env').setAttribute('environment', 'preset', p); }
+
+        function toggleCam(mode) {
+            document.getElementById('workCam').setAttribute('camera', 'active', mode === 'work');
+            document.getElementById('shotCam').setAttribute('camera', 'active', mode === 'shot');
+        }
+    </script>
+</body>
+</html>
