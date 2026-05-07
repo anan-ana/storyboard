@@ -2,197 +2,137 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>作文分鏡教學引導系統</title>
+    <title>3D 分鏡作文系統 - 專業版</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-        body { margin: 0; font-family: "Microsoft JhengHei", sans-serif; background: #f0f0f0; display: flex; height: 100vh; overflow: hidden; }
-        
-        /* 左側控制面板 */
-        #toolbar {
-            width: 260px; background: #ffffff; padding: 20px; border-right: 2px solid #ddd;
-            display: flex; flex-direction: column; gap: 15px; box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-            z-index: 10;
+        body { margin: 0; font-family: "Microsoft JhengHei", sans-serif; overflow: hidden; }
+        #ui {
+            position: absolute; top: 15px; left: 15px; z-index: 1000;
+            width: 240px; background: rgba(255, 255, 255, 0.95);
+            padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
-        h3 { margin: 0; color: #4361ee; border-bottom: 2px solid #4361ee; padding-bottom: 5px; }
-        label { font-size: 14px; font-weight: bold; color: #333; }
-        select, button { padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; cursor: pointer; }
-        button { background: #4361ee; color: white; border: none; font-weight: bold; }
+        h3 { margin-top: 0; font-size: 18px; color: #4361ee; border-bottom: 2px solid #4361ee; }
+        label { display: block; font-size: 13px; font-weight: bold; margin: 10px 0 5px; }
+        select, button { width: 100%; padding: 10px; margin-bottom: 5px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+        button { background: #4361ee; color: white; border: none; cursor: pointer; font-weight: bold; }
         button:hover { background: #3731d2; }
-        .del-btn { background: #ef476f; }
-        
-        /* 右側畫布區域 */
-        #canvas-container { flex-grow: 1; position: relative; display: flex; justify-content: center; align-items: center; background: #808080; }
-        canvas { background: white; border: 5px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); cursor: crosshair; }
-        .hint { position: absolute; bottom: 10px; color: white; font-size: 12px; }
+        .del { background: #ef476f; }
+        .status { font-size: 12px; color: #666; margin-bottom: 10px; background: #eee; padding: 5px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <div id="toolbar">
-        <h3>🎬 分鏡配置區</h3>
+    <div id="ui">
+        <h3>🎬 3D 分鏡佈置</h3>
+        <div class="status" id="stat">請點擊按鈕新增物件</div>
         
-        <label>1. 新增物件</label>
-        <select id="item-type">
-            <option value="actor1">主角 (藍色)</option>
-            <option value="actor2">配角 (橘色)</option>
-            <option value="chair">木椅 (灰色)</option>
-            <option value="table">長桌 (灰色)</option>
+        <label>1. 選擇類型</label>
+        <select id="item">
+            <option value="actor-blue">主角 (藍色人偶)</option>
+            <option value="actor-orange">配角 (橘色人偶)</option>
+            <option value="chair">木椅</option>
+            <option value="table">長桌</option>
         </select>
-        <button onclick="addObject()">＋ 放入畫面中央</button>
+        <button onclick="spawn()">＋ 放入場景中央</button>
 
-        <label>2. 編輯選中物件</label>
-        <button onclick="rotateObject()">↺ 旋轉 45°</button>
-        <button class="del-btn" onclick="deleteObject()">🗑 移除物件</button>
+        <label>2. 修改選中物</label>
+        <button onclick="rotate()">↺ 旋轉角度 (45°)</button>
+        <button class="del" onclick="remove()">🗑 移除物件</button>
+
+        <label>3. 視角</label>
+        <button onclick="cam('work')">佈置視角 (高空)</button>
+        <button onclick="cam('shot')">分鏡視角 (水平)</button>
+    </div>
+
+    <a-scene embedded cursor="rayOrigin: mouse">
+        <a-sky color="#666666"></a-sky>
+
+        <a-entity position="0 0 0" rotation="-90 0 0" 
+                  geometry="primitive: plane; width: 30; height: 30" 
+                  material="color: #444; wireframe: true; wireframeLinewidth: 2; opacity: 0.8; transparent: true">
+        </a-entity>
         
-        <label>3. 寫作引導</label>
-        <button onclick="clearCanvas()">清空場景</button>
-        <button style="background:#2ecc71" onclick="downloadImage()">💾 下載分鏡圖</button>
+        <a-plane position="0 -0.01 0" rotation="-90 0 0" width="30" height="30" color="#333"></a-plane>
 
-        <div style="font-size: 12px; color: #666; margin-top: 10px;">
-            <strong>操作：</strong><br>
-            • 用滑鼠左鍵「拖曳」移動物件<br>
-            • 點擊物件後進行旋轉或刪除
-        </div>
-    </div>
+        <a-entity id="stage"></a-entity>
 
-    <div id="canvas-container">
-        <canvas id="mainCanvas" width="800" height="450"></canvas>
-        <div class="hint">這是一張 16:9 的電影分鏡畫布，底部的灰色網格代表地板空間。</div>
-    </div>
+        <a-entity id="rig" position="0 0 0">
+            <a-entity id="workCam" camera look-controls wasd-controls position="0 6 8" rotation="-35 0 0" active="true"></a-entity>
+            <a-entity id="shotCam" camera look-controls position="0 1.6 0" active="false"></a-entity>
+        </a-entity>
+
+        <a-entity light="type: ambient; intensity: 0.8"></a-entity>
+        <a-entity light="type: directional; intensity: 0.6" position="1 4 3"></a-entity>
+    </a-scene>
 
     <script>
-        const canvas = document.getElementById('mainCanvas');
-        const ctx = canvas.getContext('2d');
-        let objects = [];
-        let selectedIdx = -1;
-        let isDragging = false;
-        let dragOffset = { x: 0, y: 0 };
+        let selected = null;
+        const stat = document.getElementById('stat');
 
-        // 畫布座標中央
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-
-        // 初始化繪製
-        function draw() {
-            // 清空畫布
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        function spawn() {
+            const val = document.getElementById('item').value;
+            const stage = document.getElementById('stage');
+            const el = document.createElement('a-entity');
             
-            // 繪製背景與三維模擬網格
-            ctx.fillStyle = "#f9f9f9";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // 繪製簡單的地面格線
-            ctx.strokeStyle = "#ddd";
-            ctx.beginPath();
-            for(let i=0; i<=canvas.width; i+=40) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); }
-            for(let i=0; i<=canvas.height; i+=40) { ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); }
-            ctx.stroke();
-
-            // 繪製所有物件
-            objects.forEach((obj, index) => {
-                ctx.save();
-                ctx.translate(obj.x, obj.y);
-                ctx.rotate((obj.rotation * Math.PI) / 180);
+            // 重要：初始位置放在相機前方中央
+            if(val.startsWith('actor')) {
+                // 人偶外型：頭(球體) + 身體(圓柱)
+                const body = document.createElement('a-entity');
+                body.setAttribute('geometry', 'primitive: cylinder; radius: 0.3; height: 1.5');
+                body.setAttribute('material', 'color', val === 'actor-blue' ? '#4361ee' : '#fb8500');
                 
-                // 繪製陰影
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = "rgba(0,0,0,0.2)";
-
-                // 根據類型繪圖
-                ctx.fillStyle = obj.color;
-                if(obj.type === 'actor') {
-                    // 畫一個簡單的人形 (頭+身體)
-                    ctx.beginPath();
-                    ctx.arc(0, -30, 15, 0, Math.PI * 2); // 頭
-                    ctx.fill();
-                    ctx.fillRect(-15, -15, 30, 45); // 身體
-                } else if(obj.type === 'chair') {
-                    ctx.fillRect(-20, -20, 40, 40);
-                    ctx.strokeRect(-20, -20, 40, 40);
-                } else {
-                    ctx.fillRect(-40, -15, 80, 30);
-                }
-
-                // 選中效果
-                if(index === selectedIdx) {
-                    ctx.strokeStyle = "#4361ee";
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(-45, -45, 90, 90);
-                }
+                const head = document.createElement('a-entity');
+                head.setAttribute('geometry', 'primitive: sphere; radius: 0.35');
+                head.setAttribute('material', 'color', '#ffb703');
+                head.setAttribute('position', '0 1 0'); // 在身體上方
                 
-                ctx.restore();
-            });
-        }
-
-        // 新增物件
-        function addObject() {
-            const typeValue = document.getElementById('item-type').value;
-            let newObj = {
-                x: centerX,
-                y: centerY,
-                rotation: 0,
-                type: typeValue.includes('actor') ? 'actor' : (typeValue === 'chair' ? 'chair' : 'table'),
-                color: typeValue === 'actor1' ? '#4361ee' : (typeValue === 'actor2' ? '#fb8500' : '#888'),
-                id: Date.now()
-            };
-            objects.push(newObj);
-            selectedIdx = objects.length - 1;
-            draw();
-        }
-
-        // 旋轉
-        function rotateObject() {
-            if(selectedIdx === -1) return;
-            objects[selectedIdx].rotation += 45;
-            draw();
-        }
-
-        // 刪除
-        function deleteObject() {
-            if(selectedIdx === -1) return;
-            objects.splice(selectedIdx, 1);
-            selectedIdx = -1;
-            draw();
-        }
-
-        function clearCanvas() { objects = []; selectedIdx = -1; draw(); }
-
-        // 滑鼠交互
-        canvas.onmousedown = (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            selectedIdx = objects.findIndex(obj => 
-                Math.abs(obj.x - mouseX) < 40 && Math.abs(obj.y - mouseY) < 40
-            );
-
-            if(selectedIdx !== -1) {
-                isDragging = true;
-                dragOffset.x = mouseX - objects[selectedIdx].x;
-                dragOffset.y = mouseY - objects[selectedIdx].y;
+                el.appendChild(body);
+                el.appendChild(head);
+                el.setAttribute('position', '0 0.75 -3'); // 地面上
+            } else if(val === 'chair') {
+                el.setAttribute('geometry', 'primitive: box; width: 0.7; height: 1; depth: 0.7');
+                el.setAttribute('material', 'color', '#8d99ae');
+                el.setAttribute('position', '0 0.5 -3');
+            } else {
+                el.setAttribute('geometry', 'primitive: box; width: 2; height: 0.8; depth: 1');
+                el.setAttribute('material', 'color', '#2b2d42');
+                el.setAttribute('position', '0 0.4 -3');
             }
-            draw();
-        };
 
-        canvas.onmousemove = (e) => {
-            if(!isDragging) return;
-            const rect = canvas.getBoundingClientRect();
-            objects[selectedIdx].x = e.clientX - rect.left - dragOffset.x;
-            objects[selectedIdx].y = e.clientY - rect.top - dragOffset.y;
-            draw();
-        };
+            // 選取邏輯
+            el.addEventListener('mousedown', function() {
+                // 恢復前一個選取物的顏色
+                if(selected) {
+                    selected.setAttribute('scale', '1 1 1');
+                }
+                selected = el;
+                // 選中效果：縮放一點點代表選中
+                selected.setAttribute('scale', '1.1 1.1 1.1');
+                stat.innerText = "已選中該物件";
+            });
 
-        window.onmouseup = () => { isDragging = false; };
-
-        // 截圖存檔
-        function downloadImage() {
-            const link = document.createElement('a');
-            link.download = 'storyboard.png';
-            link.href = canvas.toDataURL();
-            link.click();
+            stage.appendChild(el);
+            stat.innerText = "新增成功，請在場景中央查看";
         }
 
-        draw(); // 初始渲染
+        function rotate() {
+            if(!selected) return alert("請先選取場景中的物件");
+            let rot = selected.getAttribute('rotation');
+            selected.setAttribute('rotation', `0 ${rot.y + 45} 0`);
+        }
+
+        function remove() {
+            if(selected) {
+                selected.parentNode.removeChild(selected);
+                selected = null;
+                stat.innerText = "物件已移除";
+            }
+        }
+
+        function cam(m) {
+            document.getElementById('workCam').setAttribute('camera', 'active', m === 'work');
+            document.getElementById('shotCam').setAttribute('camera', 'active', m === 'shot');
+        }
     </script>
 </body>
 </html>
