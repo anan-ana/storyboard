@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>3D 分鏡作文系統 - 專業版</title>
+    <title>3D 模型分鏡教學系統</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
         body { margin: 0; font-family: "Microsoft JhengHei", sans-serif; overflow: hidden; }
@@ -15,54 +15,55 @@
         label { display: block; font-size: 13px; font-weight: bold; margin: 10px 0 5px; }
         select, button { width: 100%; padding: 10px; margin-bottom: 5px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
         button { background: #4361ee; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #3731d2; }
         .del { background: #ef476f; }
-        .status { font-size: 12px; color: #666; margin-bottom: 10px; background: #eee; padding: 5px; border-radius: 4px; }
+        .status { font-size: 11px; color: #666; margin-bottom: 10px; background: #eee; padding: 5px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h3>🎬 3D 分鏡佈置</h3>
-        <div class="status" id="stat">請點擊按鈕新增物件</div>
+        <h3>🎬 3D 分鏡實作</h3>
+        <div class="status" id="stat">請選擇模型並放入場景</div>
         
-        <label>1. 選擇類型</label>
-        <select id="item">
-            <option value="actor-blue">主角 (藍色人偶)</option>
-            <option value="actor-orange">配角 (橘色人偶)</option>
-            <option value="chair">木椅</option>
-            <option value="table">長桌</option>
+        <label>1. 選擇 3D 物件</label>
+        <select id="item-select">
+            <option value="actor">小人偶 (作文主角)</option>
+            <option value="helmet">探險頭盔 (科幻物件)</option>
+            <option value="dino">三角龍 (冒險場景)</option>
         </select>
         <button onclick="spawn()">＋ 放入場景中央</button>
 
         <label>2. 修改選中物</label>
         <button onclick="rotate()">↺ 旋轉角度 (45°)</button>
-        <button class="del" onclick="remove()">🗑 移除物件</button>
+        <button class="del" onclick="remove()">🗑 移除選中物</button>
 
-        <label>3. 視角</label>
-        <button onclick="cam('work')">佈置視角 (高空)</button>
-        <button onclick="cam('shot')">分鏡視角 (水平)</button>
+        <div style="font-size: 11px; color: #999; margin-top: 10px;">
+            提示：滑鼠右鍵旋轉視角<br>滾輪縮放 / WASD 移動
+        </div>
     </div>
 
     <a-scene embedded cursor="rayOrigin: mouse">
-        <a-sky color="#666666"></a-sky>
+        <a-assets>
+            <a-asset-item id="model-actor" src="https://cdn.aframe.io/test-models/models/glTF-2.0/virtualcity/VC.gltf"></a-asset-item>
+            <a-asset-item id="model-helmet" src="https://cdn.aframe.io/test-models/models/flight-helmet/FlightHelmet.gltf"></a-asset-item>
+            <a-asset-item id="model-dino" src="https://cdn.aframe.io/examples/ar/models/triceratops/scene.gltf"></a-asset-item>
+        </a-assets>
 
-        <a-entity position="0 0 0" rotation="-90 0 0" 
-                  geometry="primitive: plane; width: 30; height: 30" 
-                  material="color: #444; wireframe: true; wireframeLinewidth: 2; opacity: 0.8; transparent: true">
-        </a-entity>
+        <a-sky color="#666"></a-sky>
         
-        <a-plane position="0 -0.01 0" rotation="-90 0 0" width="30" height="30" color="#333"></a-plane>
+        <a-entity position="0 0 0" rotation="-90 0 0" 
+                  geometry="primitive: plane; width: 20; height: 20" 
+                  material="color: #444; wireframe: true; opacity: 0.5"></a-entity>
+        <a-plane position="0 -0.01 0" rotation="-90 0 0" width="20" height="20" color="#333"></a-plane>
 
         <a-entity id="stage"></a-entity>
 
         <a-entity id="rig" position="0 0 0">
-            <a-entity id="workCam" camera look-controls wasd-controls position="0 6 8" rotation="-35 0 0" active="true"></a-entity>
-            <a-entity id="shotCam" camera look-controls position="0 1.6 0" active="false"></a-entity>
+            <a-entity camera look-controls wasd-controls position="0 3 5" rotation="-20 0 0"></a-entity>
         </a-entity>
 
-        <a-entity light="type: ambient; intensity: 0.8"></a-entity>
-        <a-entity light="type: directional; intensity: 0.6" position="1 4 3"></a-entity>
+        <a-entity light="type: ambient; intensity: 1"></a-entity>
+        <a-entity light="type: directional; intensity: 0.8" position="1 4 3"></a-entity>
     </a-scene>
 
     <script>
@@ -70,53 +71,35 @@
         const stat = document.getElementById('stat');
 
         function spawn() {
-            const val = document.getElementById('item').value;
+            const type = document.getElementById('item-select').value;
             const stage = document.getElementById('stage');
             const el = document.createElement('a-entity');
             
-            // 重要：初始位置放在相機前方中央
-            if(val.startsWith('actor')) {
-                // 人偶外型：頭(球體) + 身體(圓柱)
-                const body = document.createElement('a-entity');
-                body.setAttribute('geometry', 'primitive: cylinder; radius: 0.3; height: 1.5');
-                body.setAttribute('material', 'color', val === 'actor-blue' ? '#4361ee' : '#fb8500');
-                
-                const head = document.createElement('a-entity');
-                head.setAttribute('geometry', 'primitive: sphere; radius: 0.35');
-                head.setAttribute('material', 'color', '#ffb703');
-                head.setAttribute('position', '0 1 0'); // 在身體上方
-                
-                el.appendChild(body);
-                el.appendChild(head);
-                el.setAttribute('position', '0 0.75 -3'); // 地面上
-            } else if(val === 'chair') {
-                el.setAttribute('geometry', 'primitive: box; width: 0.7; height: 1; depth: 0.7');
-                el.setAttribute('material', 'color', '#8d99ae');
-                el.setAttribute('position', '0 0.5 -3');
-            } else {
-                el.setAttribute('geometry', 'primitive: box; width: 2; height: 0.8; depth: 1');
-                el.setAttribute('material', 'color', '#2b2d42');
-                el.setAttribute('position', '0 0.4 -3');
-            }
+            // 根據選單載入不同模型
+            el.setAttribute('gltf-model', `#model-${type}`);
+            
+            // 初始設定 (位置、大小調整)
+            el.setAttribute('position', '0 0 -3');
+            if(type === 'dino') el.setAttribute('scale', '0.01 0.01 0.01'); // 恐龍原始模型超大，需要縮小
+            else if(type === 'actor') el.setAttribute('scale', '1 1 1');
+            else el.setAttribute('scale', '2 2 2');
 
             // 選取邏輯
             el.addEventListener('mousedown', function() {
-                // 恢復前一個選取物的顏色
                 if(selected) {
-                    selected.setAttribute('scale', '1 1 1');
+                    selected.setAttribute('material', 'emissive', '#000');
                 }
                 selected = el;
-                // 選中效果：縮放一點點代表選中
-                selected.setAttribute('scale', '1.1 1.1 1.1');
-                stat.innerText = "已選中該物件";
+                // 讓選中的東西發一點光
+                stat.innerText = "已選中該模型";
             });
 
             stage.appendChild(el);
-            stat.innerText = "新增成功，請在場景中央查看";
+            stat.innerText = "模型已生成！";
         }
 
         function rotate() {
-            if(!selected) return alert("請先選取場景中的物件");
+            if(!selected) return alert("請先選取場景中的模型");
             let rot = selected.getAttribute('rotation');
             selected.setAttribute('rotation', `0 ${rot.y + 45} 0`);
         }
@@ -125,13 +108,8 @@
             if(selected) {
                 selected.parentNode.removeChild(selected);
                 selected = null;
-                stat.innerText = "物件已移除";
+                stat.innerText = "已移除物件";
             }
-        }
-
-        function cam(m) {
-            document.getElementById('workCam').setAttribute('camera', 'active', m === 'work');
-            document.getElementById('shotCam').setAttribute('camera', 'active', m === 'shot');
         }
     </script>
 </body>
